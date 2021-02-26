@@ -1,16 +1,26 @@
-from typing import NamedTuple
+from typing import Set, NamedTuple
 from pathlib import Path
+
 
 __QUOTES = {'"', "'", "`"}
 
 
-class Dependency(NamedTuple):
-    structure: str
+class Module(NamedTuple):
     file_path: Path
+    structures: Set[str]
 
-def get_dependencies(target: Path, visited=None):
-    if visited is None:
-        visited = set()
+
+    def embed(self) -> str:
+        return self.__get_structure_declaration()
+
+    def __get_structure_declaration(self) -> str:
+        return "var " + " = ".join(self.structures) + " = "
+
+
+def get_dependencies(target: Path, visited=None, deps=None):
+    visited = set() if visited is None else visited
+    deps = dict() if deps is None else deps
+
     if target in visited:
         return []
     dependencies = []
@@ -48,16 +58,19 @@ def get_dependencies(target: Path, visited=None):
                             t = ''.join(import_target)[1:-1]
                             if t[:1] == ".":
                                 t = target.parent / t
-                            dependencies.append(Dependency(
-                                ''.join(import_material),
-                                Path(t).resolve()
-                            ))
+                            t = Path(t).resolve()
+                            deps[t] = deps.get(t, Module(t, set()))
+                            deps[t].structures.add(
+                                ''.join(import_material)
+                            )
+                            dependencies.append(t)
                             import_material = []
                             import_target = []
                             is_importing = []
                             is_importing = 0
 
     visited.add(target)
-    for _, path in dependencies[:]:
-        dependencies.extend(get_dependencies(path, visited))
-    return dependencies
+    for path in dependencies:
+        get_dependencies(path, visited, deps)
+
+    return deps
