@@ -2,6 +2,8 @@
 
 A javascript bundler that tries to keep the output bundle similar to the source code.
 
+![look, its the same](https://raw.githubusercontent.com/r2dev2/samepack/master/img/description.png)
+
 ## Setup
 
 ```bash
