@@ -5,5 +5,5 @@ import { hello4 } from "./dep4.js";
 
 console.log(hello1());
 console.log(Dep2.hello2());
-console.log(hello3);
-console.log(hello4);
+console.log(hello3());
+console.log(hello4());

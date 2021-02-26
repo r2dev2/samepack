@@ -17,9 +17,12 @@ class Module(NamedTuple):
         struct_decl = self.__get_structure_declaration()
         return self.__combine_module_pieces(struct_decl, exports, module_contents)
 
+    def embed_main(self) -> str:
+        return self.__remove_exports(self.__get_module_contents())
+
     def __get_module_contents(self) -> str:
         with open(self.file_path, "r") as fin:
-            return re.sub(r"import {[^}]*} from", "", fin.read())
+            return re.sub(r"import \w+ from", "//", re.sub(r"import {[^}]*} from", "//", fin.read()))
 
     @staticmethod
     def __combine_module_pieces(
