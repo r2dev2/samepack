@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from samepack.analyze import get_dependencies, Module
+from samepack.analyze import Module, get_dependencies
+
 
 def build(target: Path) -> str:
     index = Module(target, set())

@@ -22,7 +22,11 @@ class Module(NamedTuple):
 
     def __get_module_contents(self) -> str:
         with open(self.file_path, "r") as fin:
-            return re.sub(r"import \w+ from", "//", re.sub(r"import {[^}]*} from", "//", fin.read()))
+            return re.sub(
+                r"import \w+ from",
+                "//",
+                re.sub(r"import {[^}]*} from", "//", fin.read()),
+            )
 
     @staticmethod
     def __combine_module_pieces(
