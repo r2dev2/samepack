@@ -1,7 +1,6 @@
 import re
-from typing import Set, NamedTuple
 from pathlib import Path
-
+from typing import Dict, NamedTuple, Optional, Set
 
 QUOTES = {'"', "'", "`"}
 EXPORTABLES = {"let", "const", "function"}
@@ -12,11 +11,42 @@ class Module(NamedTuple):
     structures: Set[str]
 
     def embed(self) -> str:
-        return self.__get_exports(self.__get_module_contents())
+        contents = self.__get_module_contents()
+        exports = self.__to_return(self.__get_exports(contents))
+        module_contents = self.__remove_exports(contents)
+        struct_decl = self.__get_structure_declaration()
+        return self.__combine_module_pieces(struct_decl, exports, module_contents)
 
     def __get_module_contents(self) -> str:
         with open(self.file_path, "r") as fin:
             return re.sub(r"import {[^}]*} from", "", fin.read())
+
+    @staticmethod
+    def __combine_module_pieces(
+        struct_decl: str, exports: str, module_contents: str
+    ) -> str:
+        return "\n".join(
+            [
+                f"{struct_decl} (() => " "{",
+                module_contents,
+                exports,
+                "})();",
+            ]
+        )
+
+    @staticmethod
+    def __remove_exports(contents: str) -> str:
+        buff = []
+        for line in contents.split("\n"):
+            if line[:7] == "export ":
+                buff.append(line[7:])
+            else:
+                buff.append(line)
+        return "\n".join(buff)
+
+    @staticmethod
+    def __to_return(exports: Set[str]) -> str:
+        return "return {" f"{' '.join(exports)}" "};"
 
     @staticmethod
     def __get_exports(module: str) -> Set[str]:
@@ -40,7 +70,11 @@ class Module(NamedTuple):
         return "var " + " = ".join(self.structures) + " = "
 
 
-def get_dependencies(target: Path, visited=None, deps=None):
+def get_dependencies(
+    target: Path,
+    visited: Optional[Set[Path]] = None,
+    deps: Optional[Dict[Path, Module]] = None,
+) -> Dict[Path, Module]:
     visited = set() if visited is None else visited
     deps = dict() if deps is None else deps
 
