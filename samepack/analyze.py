@@ -1,17 +1,40 @@
+import re
 from typing import Set, NamedTuple
 from pathlib import Path
 
 
-__QUOTES = {'"', "'", "`"}
+QUOTES = {'"', "'", "`"}
+EXPORTABLES = {"let", "const", "function"}
 
 
 class Module(NamedTuple):
     file_path: Path
     structures: Set[str]
 
-
     def embed(self) -> str:
-        return self.__get_structure_declaration()
+        return self.__get_exports(self.__get_module_contents())
+
+    def __get_module_contents(self) -> str:
+        with open(self.file_path, "r") as fin:
+            return re.sub(r"import {[^}]*} from", "", fin.read())
+
+    @staticmethod
+    def __get_exports(module: str) -> Set[str]:
+        wout_quotes = Module.__remove_quoted(module)
+        words = []
+        exports = set()
+        for word in filter(bool, re.split(r"\W+", wout_quotes)):
+            if len(words) >= 2 and words[-2] == "export" and words[-1] in EXPORTABLES:
+                exports.add(word)
+            words.append(word)
+        return exports
+
+    @staticmethod
+    def __remove_quoted(module: str) -> str:
+        s = module
+        for q in QUOTES:
+            s = re.sub(f"{q}[^{q}]*{q}", "", s)
+        return s
 
     def __get_structure_declaration(self) -> str:
         return "var " + " = ".join(self.structures) + " = "
@@ -25,12 +48,12 @@ def get_dependencies(target: Path, visited=None, deps=None):
         return []
     dependencies = []
     stack = []
-    is_importing = 0 # 0 is not yet, 1 is on from, 2 is on target
+    is_importing = 0  # 0 is not yet, 1 is on from, 2 is on target
     import_material = []
     import_target = []
-    with open(target, 'r') as fin:
+    with open(target, "r") as fin:
         for line in map(str.strip, fin):
-            for token in filter(bool, line.split(' ')):
+            for token in filter(bool, line.split(" ")):
                 if token == "import" and not stack:
                     is_importing = 1
                 elif token == "from" and not stack:
@@ -38,7 +61,7 @@ def get_dependencies(target: Path, visited=None, deps=None):
                     import_target = []
                 elif is_importing == 0:
                     for c in token:
-                        if c in __QUOTES:
+                        if c in QUOTES:
                             if stack and c == stack[-1]:
                                 stack.pop()
                             else:
@@ -46,23 +69,21 @@ def get_dependencies(target: Path, visited=None, deps=None):
                 elif is_importing == 1:
                     import_material.append(token)
                 elif is_importing == 2:
-                    for c in token + ' ':
+                    for c in token + " ":
                         if stack or not import_target:
                             import_target.append(c)
-                            if c in __QUOTES:
+                            if c in QUOTES:
                                 if stack and c == stack[-1]:
                                     stack.pop()
                                 else:
                                     stack.append(c)
                         elif is_importing == 2:
-                            t = ''.join(import_target)[1:-1]
+                            t = "".join(import_target)[1:-1]
                             if t[:1] == ".":
                                 t = target.parent / t
                             t = Path(t).resolve()
                             deps[t] = deps.get(t, Module(t, set()))
-                            deps[t].structures.add(
-                                ''.join(import_material)
-                            )
+                            deps[t].structures.add("".join(import_material))
                             dependencies.append(t)
                             import_material = []
                             import_target = []
