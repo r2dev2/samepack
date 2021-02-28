@@ -11,6 +11,8 @@ class Module(NamedTuple):
     structures: Set[str]
 
     def embed(self) -> str:
+        if self.file_path.is_dir():
+            return ""
         contents = self.__get_module_contents()
         exports = self.__to_return(self.__get_exports(contents))
         module_contents = self.__remove_exports(contents)
@@ -53,7 +55,7 @@ class Module(NamedTuple):
 
     @staticmethod
     def __to_return(exports: Set[str]) -> str:
-        return "return {" f"{' '.join(exports)}" "};"
+        return "return {" f"{', '.join(exports)}" "};"
 
     @staticmethod
     def __get_exports(module: str) -> Set[str]:
@@ -61,7 +63,7 @@ class Module(NamedTuple):
         words = []
         exports = set()
         for word in filter(bool, re.split(r"\W+", wout_quotes)):
-            if Module.__endswith_async_export(words) or Module.__endswith_async_export(words):
+            if Module.__endswith_general_export(words) or Module.__endswith_async_export(words):
                 exports.add(word)
             words.append(word)
         return exports
@@ -95,7 +97,7 @@ def get_dependencies(
     deps = dict() if deps is None else deps
     tree = dict() if tree is None else tree
 
-    if target in visited:
+    if target in visited or target.is_dir():
         return []
     dependencies = []
     stack = []
