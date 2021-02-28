@@ -81,9 +81,11 @@ def get_dependencies(
     target: Path,
     visited: Optional[Set[Path]] = None,
     deps: Optional[Dict[Path, Module]] = None,
+    tree: Optional[Dict[Path, Set[Path]]] = None,
 ) -> Dict[Path, Module]:
     visited = set() if visited is None else visited
     deps = dict() if deps is None else deps
+    tree = dict() if tree is None else tree
 
     if target in visited:
         return []
@@ -126,6 +128,8 @@ def get_dependencies(
                             deps[t] = deps.get(t, Module(t, set()))
                             deps[t].structures.add("".join(import_material))
                             dependencies.append(t)
+                            tree[target] = tree.get(target, set())
+                            tree[target].add(t)
                             import_material = []
                             import_target = []
                             is_importing = []
@@ -133,6 +137,6 @@ def get_dependencies(
 
     visited.add(target)
     for path in dependencies:
-        get_dependencies(path, visited, deps)
+        get_dependencies(path, visited, deps, tree)
 
-    return deps
+    return deps, tree
