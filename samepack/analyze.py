@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, NamedTuple, Optional, Set
 
 QUOTES = {'"', "'", "`"}
-EXPORTABLES = {"let", "const", "function", "class"}
+EXPORTABLES = {"let", "const", "function", "class", "var"}
 
 
 class Module(NamedTuple):
@@ -61,10 +61,18 @@ class Module(NamedTuple):
         words = []
         exports = set()
         for word in filter(bool, re.split(r"\W+", wout_quotes)):
-            if len(words) >= 2 and words[-2] == "export" and words[-1] in EXPORTABLES:
+            if Module.__endswith_async_export(words) or Module.__endswith_async_export(words):
                 exports.add(word)
             words.append(word)
         return exports
+
+    @staticmethod
+    def __endswith_async_export(words: str) -> bool:
+        return len(words) >= 3 and words[-3:] == ["export", "async", "function"]
+
+    @staticmethod
+    def __endswith_general_export(words: str) -> bool:
+        return len(words) >= 2 and words[-2] == "export" and words[-1] in EXPORTABLES
 
     @staticmethod
     def __remove_quoted(module: str) -> str:
