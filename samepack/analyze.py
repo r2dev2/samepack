@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, NamedTuple, Optional, Set
 
 QUOTES = {'"', "'", "`"}
-EXPORTABLES = {"let", "const", "function"}
+EXPORTABLES = {"let", "const", "function", "class"}
 
 
 class Module(NamedTuple):
