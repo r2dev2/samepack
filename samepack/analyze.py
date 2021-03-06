@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from typing import Dict, NamedTuple, Optional, Set
+from typing import Dict, Iterable, NamedTuple, Optional, Set
 
 QUOTES = {'"', "'", "`"}
 EXPORTABLES = {"let", "const", "function", "class", "var"}
@@ -63,7 +63,9 @@ class Module(NamedTuple):
         words = []
         exports = set()
         for word in filter(bool, re.split(r"\W+", wout_quotes)):
-            if Module.__endswith_general_export(words) or Module.__endswith_async_export(words):
+            if Module.__endswith_general_export(
+                words
+            ) or Module.__endswith_async_export(words):
                 exports.add(word)
             words.append(word)
         return exports
@@ -120,7 +122,7 @@ def get_dependencies(
                             else:
                                 stack.append(c)
                 elif is_importing == 1:
-                    import_material.append(token)
+                    import_material.append(replace_special_token(token))
                 elif is_importing == 2:
                     for c in token + " ":
                         if stack or not import_target:
@@ -150,3 +152,11 @@ def get_dependencies(
         get_dependencies(path, visited, deps, tree)
 
     return deps, tree
+
+
+def replace_special_token(token: str):
+    if token == "*":
+        raise NotImplementedError("* syntax is not yet supported")
+    elif token == "as":
+        return ":"
+    return token
