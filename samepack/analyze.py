@@ -86,7 +86,8 @@ class Module(NamedTuple):
         return s
 
     def __get_structure_declaration(self) -> str:
-        return "var " + " = ".join(self.structures) + " = "
+        declaration = " = ".join(self.structures).replace("*:", "")
+        return f"var {declaration} = "
 
 
 def get_dependencies(
@@ -155,8 +156,6 @@ def get_dependencies(
 
 
 def replace_special_token(token: str):
-    if token == "*":
-        raise NotImplementedError("* syntax is not yet supported")
-    elif token == "as":
+    if token == "as":
         return ":"
     return token

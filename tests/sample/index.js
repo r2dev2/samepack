@@ -1,5 +1,5 @@
 import { hello1 } from './dep1.js';
-import Dep2 from './dep2.js'
+import * as Dep2 from './dep2.js'
 import { hello3 as hey3 } from `./dep3.js`
 import { hello4 } from "./dep4.js";
 
