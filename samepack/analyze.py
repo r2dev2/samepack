@@ -25,7 +25,7 @@ class Module(NamedTuple):
     def __get_module_contents(self) -> str:
         with open(self.file_path, "r") as fin:
             return re.sub(
-                r"import \w+ from",
+                r"import \* as \w+ from",
                 "//",
                 re.sub(r"import {[^}]*} from", "//", fin.read()),
             )
