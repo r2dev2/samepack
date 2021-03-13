@@ -8,42 +8,61 @@ __file_code_cache: Dict[Path, str] = dict()
 __file_codes: Dict[str, int] = dict()
 
 
+class Import(NamedTuple):
+    struct: str
+    file_path: Path
+
+    def __str__(self) -> str:
+        return f"var {self.struct} = {file_code(self.file_path)};"
+
+
 class Module(NamedTuple):
     file_path: Path
-    structures: Set[str]
 
-    def embed(self) -> str:
+    def embed(self, main=False) -> str:
         if self.file_path.is_dir():
             return ""
-        contents = self.__get_module_contents()
+        raw = self.__read_file()
+        contents = self.__get_module_contents(raw)
+        imports = self.__get_imports(raw)
         exports = self.__to_return(self.__get_exports(contents))
         module_contents = self.__remove_exports(contents)
         struct_decl = self.__get_structure_declaration()
-        return self.__combine_module_pieces(struct_decl, exports, module_contents)
+        return self.__combine_module_pieces(struct_decl, imports, exports, module_contents, main)
 
     def embed_main(self) -> str:
-        return self.__remove_exports(self.__get_module_contents())
+        return self.embed(True)
 
-    def __get_module_contents(self) -> str:
+    def __read_file(self) -> str:
         with open(self.file_path, "r") as fin:
-            return re.sub(
-                r"import \* as \w+ from",
-                "//",
-                re.sub(r"import {[^}]*} from", "//", fin.read()),
-            )
+            return fin.read()
+
+    @staticmethod
+    def __get_module_contents(raw_contents: str) -> str:
+        return re.sub(
+            r"import \* as \w+ from",
+            "//",
+            re.sub(r"import {[^}]*} from", "//", raw_contents),
+        )
 
     @staticmethod
     def __combine_module_pieces(
-        struct_decl: str, exports: str, module_contents: str
+        struct_decl: str, imports: Iterable[str], exports: str, module_contents: str, main: bool
     ) -> str:
         return "\n".join(
             [
-                f"{struct_decl} (() => " "{",
+                f"{struct_decl} (() => " "{" if not main else "",
+                "",
+                *imports,
+                "",
                 module_contents,
-                exports,
-                "})();",
+                exports if not main else "",
+                "})();" if not main else "",
             ]
         )
+
+    def __get_imports(self, raw_contents: str) -> Iterable[str]:
+        return map(str, gen_imports(raw_contents, self.file_path))
 
     @staticmethod
     def __remove_exports(contents: str) -> str:
@@ -88,8 +107,7 @@ class Module(NamedTuple):
         return s
 
     def __get_structure_declaration(self) -> str:
-        declaration = " = ".join(self.structures).replace("*:", "")
-        return f"var {file_code(self.file_path)} = {declaration} = "
+        return f"var {file_code(self.file_path)} = "
 
 
 def file_code(fp: Path) -> str:
@@ -99,7 +117,7 @@ def file_code(fp: Path) -> str:
     except KeyError:
         stem = full_path.stem.replace("-", "")
         end_no = __file_codes.get(stem, 0)
-        file_code = f"{stem}${end_no}"
+        file_code = f"SAME${stem}${end_no}"
         __file_codes[stem] = end_no + 1
         __file_code_cache[full_path] = file_code
         return file_code
@@ -118,56 +136,72 @@ def get_dependencies(
     if target in visited or target.is_dir():
         return []
     dependencies = []
-    stack = []
-    is_importing = 0  # 0 is not yet, 1 is on from, 2 is on target
-    import_material = []
-    import_target = []
     with open(target, "r") as fin:
-        for line in map(str.strip, fin):
-            for token in filter(bool, line.split(" ")):
-                if token == "import" and not stack:
-                    is_importing = 1
-                elif token == "from" and not stack:
-                    is_importing = 2
-                    import_target = []
-                elif is_importing == 0:
-                    for c in token:
-                        if c in QUOTES:
-                            if stack and c == stack[-1]:
-                                stack.pop()
-                            else:
-                                stack.append(c)
-                elif is_importing == 1:
-                    import_material.append(replace_special_token(token))
-                elif is_importing == 2:
-                    for c in token + " ":
-                        if stack or not import_target:
-                            import_target.append(c)
-                            if c in QUOTES:
-                                if stack and c == stack[-1]:
-                                    stack.pop()
-                                else:
-                                    stack.append(c)
-                        elif is_importing == 2:
-                            t = "".join(import_target)[1:-1]
-                            if t[:1] == ".":
-                                t = target.parent / t
-                            t = Path(t).resolve()
-                            deps[t] = deps.get(t, Module(t, set()))
-                            deps[t].structures.add("".join(import_material))
-                            dependencies.append(t)
-                            tree[target] = tree.get(target, set())
-                            tree[target].add(t)
-                            import_material = []
-                            import_target = []
-                            is_importing = []
-                            is_importing = 0
+        module = fin.read()
+
+    for _, imp_path in gen_imports(module, target):
+        deps[imp_path] = Module(imp_path)
+        dependencies.append(imp_path)
+        tree[target] = tree.get(target, set())
+        tree[target].add(imp_path)
 
     visited.add(target)
     for path in dependencies:
         get_dependencies(path, visited, deps, tree)
 
     return deps, tree
+
+
+def __not_yet_importing(token, stack):
+    for c in token:
+        __stack_process_char(c, stack)
+
+
+def __stack_process_char(c, stack):
+    if c in QUOTES:
+        if stack and c == stack[-1]:
+            stack.pop()
+        else:
+            stack.append(c)
+
+
+def gen_imports(module: str, base: Path) -> Iterable[Import]:
+    importing = 0  # 0 is not yet, 1 is on from, 2 is on target
+    import_material, import_target, stack = ([] for _ in range(3))
+    for token in re.split(r"[ \n]+", module):
+        if token == "import" and not stack:
+            importing = 1
+        elif token == "from" and not stack:
+            importing = 2
+        elif importing == 0:
+            __not_yet_importing(token, stack)
+        elif importing == 1:
+            import_material.append(replace_special_token(token))
+        elif importing == 2:
+            for c in token + " ":
+                if stack or not import_target:
+                    import_target.append(c)
+                    __stack_process_char(c, stack)
+                elif c in QUOTES:
+                    __stack_process_char(c, stack)
+                elif importing == 2:
+                    t = "".join(import_target)[1:-1]
+                    if t[:1] == ".":
+                        t = base.parent / t
+                    imp_path = Path(t)
+                    joined = join_imports(import_material).strip()
+                    if joined:
+                        yield Import(
+                            joined,
+                            imp_path,
+                        )
+                    import_material = []
+                    import_target = []
+                    importing = 0
+
+
+def join_imports(imports: Iterable[str]) -> str:
+    return "".join(imports).replace("*:", "")
 
 
 def replace_special_token(token: str):

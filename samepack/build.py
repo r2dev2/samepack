@@ -6,7 +6,7 @@ from samepack.analyze import Module, get_dependencies
 
 
 def build(target: Path) -> str:
-    index = Module(target, set())
+    index = Module(target)
     bundle = []
     deps, tree = get_dependencies(target.resolve())
     for mod_path in __topological_sort(tree, target.resolve()):
