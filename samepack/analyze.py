@@ -28,7 +28,9 @@ class Module(NamedTuple):
         exports = self.__to_return(self.__get_exports(contents))
         module_contents = self.__remove_exports(contents)
         struct_decl = self.__get_structure_declaration()
-        return self.__combine_module_pieces(struct_decl, imports, exports, module_contents, main)
+        return self.__combine_module_pieces(
+            struct_decl, imports, exports, module_contents, main
+        )
 
     def embed_main(self) -> str:
         return self.embed(True)
@@ -47,7 +49,11 @@ class Module(NamedTuple):
 
     @staticmethod
     def __combine_module_pieces(
-        struct_decl: str, imports: Iterable[str], exports: str, module_contents: str, main: bool
+        struct_decl: str,
+        imports: Iterable[str],
+        exports: str,
+        module_contents: str,
+        main: bool,
     ) -> str:
         return "\n".join(
             [
