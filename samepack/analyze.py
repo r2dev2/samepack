@@ -4,6 +4,8 @@ from typing import Dict, Iterable, NamedTuple, Optional, Set
 
 QUOTES = {'"', "'", "`"}
 EXPORTABLES = {"let", "const", "function", "class", "var"}
+__file_code_cache: Dict[Path, str] = dict()
+__file_codes: Dict[str, int] = dict()
 
 
 class Module(NamedTuple):
@@ -87,7 +89,20 @@ class Module(NamedTuple):
 
     def __get_structure_declaration(self) -> str:
         declaration = " = ".join(self.structures).replace("*:", "")
-        return f"var {declaration} = "
+        return f"var {file_code(self.file_path)} = {declaration} = "
+
+
+def file_code(fp: Path) -> str:
+    full_path = fp.resolve()
+    try:
+        return __file_code_cache[full_path]
+    except KeyError:
+        stem = full_path.stem.replace("-", "")
+        end_no = __file_codes.get(stem, 0)
+        file_code = f"{stem}${end_no}"
+        __file_codes[stem] = end_no + 1
+        __file_code_cache[full_path] = file_code
+        return file_code
 
 
 def get_dependencies(
